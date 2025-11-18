@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>MindWell · Teen Mental Health Manager</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="A lightweight, privacy-first teen mental health self-check with trends, built for static hosting." />
+  <style>
+    :root{
+      --bg:#f6f7fb; --surface:#fff; --text:#0e1116; --muted:#5d6573;
+      --primary:#335cff; --primary-weak:#e8edff; --success:#11a36a; --warn:#f59e0b; --danger:#ef4444;
+      --border:#e6e8ee; --shadow:0 10px 25px rgba(16,24,40,.06), 0 2px 8px rgba(16,24,40,.04);
+      --radius-lg:16px; --radius-md:12px; --radius-sm:8px;
+      --fs-hero:clamp(28px,4vw,40px); --fs-h1:clamp(24px,3.2vw,32px); --fs-h2:clamp(20px,2.6vw,24px); --fs-body:16px; --fs-small:14px;
+      --container:1000px;
+    }
+    html,body{height:100%}
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:ui-sans-serif,-apple-system,Segoe UI,Roboto,Inter,"Noto Sans",Arial,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+      background: radial-gradient(1200px 600px at 80% -100px,#dfe5ff 0,transparent 60%) no-repeat, var(--bg);
+      color:var(--text); line-height:1.55; letter-spacing:.2px;
+    }
+    a{color:var(--primary); text-decoration:none} a:hover{text-decoration:underline}
+    .container{max-width:var(--container); margin:0 auto; padding:24px 20px 64px}
+    .navbar{position:sticky; top:0; z-index:50; backdrop-filter:saturate(180%) blur(10px); background:color-mix(in srgb, var(--surface) 80%, transparent); border-bottom:1px solid var(--border)}
+    .navbar-inner{max-width:var(--container); margin:0 auto; padding:14px 20px; display:flex; align-items:center; gap:14px; justify-content:space-between}
+    .brand{display:flex; align-items:center; gap:10px; font-weight:700}
+    .brand-badge{width:34px; height:34px; border-radius:10px; background:conic-gradient(from 210deg,#335cff,#7c9bff,#79ffe1,#335cff); box-shadow:inset 0 0 0 4px rgba(255,255,255,.6)}
+    .nav-actions{display:flex; align-items:center; gap:10px}
+    .btn{display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:10px 14px; border-radius:10px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-weight:600; cursor:pointer; transition:transform .05s, background .2s, border-color .2s; user-select:none; font-size:15px; line-height:1}
+    .btn:hover{transform:translateY(-1px)}
+    .btn.primary{background:var(--primary); color:#fff; border-color:color-mix(in srgb, var(--primary) 70%, #000 0%)}
+    .btn.ghost{background:transparent}
+    .btn.danger{background:var(--danger); color:#fff; border-color:transparent}
+
+    .pill{display:inline-flex; align-items:center; gap:8px; font-size:var(--fs-small); padding:6px 10px; border-radius:999px; background:var(--primary-weak); color:var(--primary); font-weight:600}
+    .grid{display:grid; grid-template-columns:1.2fr .8fr; gap:20px}
+    @media (max-width:880px){ .grid{grid-template-columns:1fr} }
+    .card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow); padding:clamp(18px,2.2vw,24px)}
+    .hero{border-radius:var(--radius-lg); padding:clamp(24px,3vw,34px); background:linear-gradient(160deg,#fff,#f7f9ff 55%,#f1f5ff 100%); border:1px solid var(--border); box-shadow:var(--shadow)}
+    h1{font-size:var(--fs-h1); margin:0 0 12px}
+    h2{font-size:var(--fs-h2); margin:0 0 12px}
+    .title-eq{font-size:var(--fs-h1)} /* 统一 Home / Latest result / History 三个标题字号 */
+    p{margin:0 0 12px}
+    small,.muted{color:var(--muted)}
+    .spacer{height:14px}
+    .row{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+    .field{display:flex; flex-direction:column; gap:6px; width:100%}
+    .field-row{display:grid; gap:10px; grid-template-columns:1fr 1fr}
+    @media (max-width:640px){ .field-row{grid-template-columns:1fr} }
+    label{font-weight:600}
+    input[type="text"], input[type="number"], textarea, select{padding:12px 12px; border:1px solid var(--border); border-radius:10px; background:#fff; outline:none}
+    input[type="text"]:focus, input[type="number"]:focus, textarea:focus, select:focus{border-color:#b9c2ff; box-shadow:0 0 0 4px rgba(51,92,255,.12)}
+
+    /* Segmented radios — 修复选中高亮与可达性 */
+    .seg{display:flex; border:1px solid var(--border); border-radius:12px; overflow:hidden; position:relative}
+    .seg input{
+      position:absolute; opacity:0; pointer-events:none; width:0; height:0; /* 保留可聚焦与选中状态 */
+    }
+    .seg label{
+      flex:1; text-align:center; padding:10px 8px; cursor:pointer; font-weight:600; user-select:none;
+      background:#fff; transition: background .15s ease, color .15s ease, box-shadow .15s ease;
+    }
+    .seg label:not(:last-child){border-right:1px solid var(--border)}
+    .seg input:checked + label{ background:var(--primary); color:#fff }
+    .seg input:focus + label{ box-shadow:0 0 0 3px rgba(51,92,255,.25) inset }
+
+    .badge{padding:4px 10px; border-radius:999px; font-size:var(--fs-small); font-weight:700; display:inline-flex; gap:6px; align-items:center}
+    .good{background:#e8fbf3; color:var(--success)} .okay{background:#fff7e8; color:var(--warn)} .risk{background:#ffe8e8; color:var(--danger)}
+    .section{display:none} .section.active{display:block}
+    .list{width:100%; border-collapse:collapse; margin-top:10px; font-size:15px}
+    .list th,.list td{border-bottom:1px solid var(--border); padding:10px 8px; text-align:left}
+    .list tr:hover td{background:#fafafe}
+    .chart-wrap{position:relative}
+    canvas{width:100%; height:360px; display:block; border:1px solid var(--border); border-radius:12px; background:#fff}
+    .tooltip{position:absolute; pointer-events:none; background:#0f172a; color:#fff; font-size:12px; padding:6px 8px; border-radius:8px; transform:translate(-50%,-130%); opacity:0; transition:opacity .1s; box-shadow:0 6px 16px rgba(0,0,0,.25)}
+    .toolbar{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px}
+    .toolbar .btn{font-size:15px} /* 四个按钮统一字号 */
+    footer{font-size:var(--fs-small); color:var(--muted)}
+    .disclaimer{font-size:var(--fs-small); color:var(--muted)}
+    .hidden{display:none !important}
+    .author-card{margin-top:14px; display:flex; align-items:flex-start; gap:12px; background:#fff; border:1px dashed var(--border); border-radius:14px; padding:14px}
+    .author-badge{width:28px; height:28px; border-radius:8px; flex:0 0 auto; background:conic-gradient(from 210deg,#335cff,#7c9bff,#79ffe1,#335cff); box-shadow:inset 0 0 0 3px rgba(255,255,255,.65)}
+    .site-footer{border-top:1px solid var(--border); background:#fff; padding:12px 20px}
+    .site-footer .container{padding:10px 20px}
+  </style>
+</head>
+<body>
+  <!-- NAV -->
+  <div class="navbar">
+    <div class="navbar-inner">
+      <div class="brand">
+        <div class="brand-badge" aria-hidden="true"></div>
+        <div data-i18n="brand">MindWell</div>
+        <span class="pill" data-i18n="pill">Teen Mental Health</span>
+      </div>
+      <div class="nav-actions">
+        <button id="langToggle" class="btn ghost" aria-label="Toggle language" data-i18n="langBtn">中文</button>
+        <span id="whoami" class="muted"></span>
+        <button id="signOutBtn" class="btn hidden" data-i18n="navSignOut">Sign out</button>
+      </div>
+    </div>
+  </div>
+
+  <main class="container">
+    <!-- LOGIN -->
+    <section id="auth" class="section active">
+      <div class="hero">
+        <div class="row" style="justify-content:space-between; align-items:flex-end">
+          <div style="max-width:680px">
+            <div class="pill" data-i18n="heroPill">Private by default · Works offline</div>
+            <h1 style="font-size:var(--fs-hero)" data-i18n="heroTitle">Welcome to MindWell</h1>
+            <p data-i18n="heroBody">A simple, privacy-first self-check for teens (ages 13–19). Sign in with a display name, take a quick 2-minute check, and watch your wellness index trend over time.</p>
+            <p class="disclaimer" data-i18n="heroDisclaimer">MindWell is educational only and does not diagnose or treat any condition. If you feel unsafe or in crisis, call your local emergency number or a trusted adult right away.</p>
+          </div>
+        </div>
+        <div class="spacer"></div>
+        <form id="loginForm" class="card" style="padding:16px; display:grid; gap:12px; max-width:680px">
+          <div class="field-row">
+            <div class="field">
+              <label for="displayName" data-i18n="loginDisplayName">Display name</label>
+              <input id="displayName" name="displayName" type="text" placeholder="e.g., Alex" required minlength="2" maxlength="24" data-i18n-placeholder="loginDisplayNamePlaceholder"/>
+            </div>
+            <div class="field">
+              <label for="age" data-i18n="loginAge">Age (optional)</label>
+              <input id="age" name="age" type="number" min="13" max="19" placeholder="13–19" data-i18n-placeholder="loginAgePlaceholder"/>
+            </div>
+          </div>
+          <div class="row">
+            <button class="btn primary" type="submit" data-i18n="loginSubmit">Sign in</button>
+            <span class="muted" data-i18n="loginNote">No email, no password. Stored only on this device.</span>
+          </div>
+        </form>
+        <!-- 作者信息模块（登录页） -->
+        <div class="author-card" id="authorLogin">
+          <div class="author-badge" aria-hidden="true"></div>
+          <div>
+            <strong data-i18n="authorTitle">Created by Sihan Eric Wang</strong>
+            <p class="muted" style="margin:6px 0 0" data-i18n="authorBody">
+              Visit my website at <a href="https://sihanwang.me" target="_blank" rel="noopener">sihanwang.me</a>.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- HOME（含 Latest + History） -->
+    <section id="home" class="section">
+      <div class="grid">
+        <div class="card">
+          <h1 class="title-eq" data-i18n="homeTitle">Home</h1>
+          <p data-i18n="homeIntro">MindWell turns a short self-assessment into a Wellness Index (0–100). Higher is better. Your results stay on this device unless you choose to export or sync.</p>
+          <ul style="margin:10px 0 0 18px">
+            <li data-i18n="homeBullet1">Take the check weekly to watch trends.</li>
+            <li data-i18n="homeBullet2">We never give medical advice; talk to a professional if you’re worried.</li>
+          </ul>
+          <div class="spacer"></div>
+          <div class="row">
+            <button class="btn primary" id="startAssessment" data-i18n="homeStart">Start Assessment</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="title-eq" data-i18n="latestTitle">Latest result</h2>
+          <p id="latestSummary" class="muted" data-i18n="latestNone">No results yet.</p>
+          <div id="latestBadge" class="badge hidden"></div>
+          <div class="spacer"></div>
+          <div class="row">
+            <button class="btn" id="quickCheck" data-i18n="latestQuick">Quick Check</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="spacer"></div>
+      <div class="card" id="historyBlock">
+        <h1 class="title-eq" data-i18n="historyTitle">History</h1>
+        <div class="chart-wrap">
+          <canvas id="trend" width="1000" height="360" aria-label="Wellness trend (0–100)" role="img"></canvas>
+          <div id="tip" class="tooltip" role="tooltip"></div>
+        </div>
+        <div class="toolbar">
+          <button class="btn" id="downloadPng" data-i18n="downloadChart">Download chart</button>
+          <button class="btn" id="exportJson" data-i18n="exportData">Export data</button>
+          <label class="btn" for="importFile" style="cursor:pointer" data-i18n="importData">Import data</label>
+          <input id="importFile" type="file" accept="application/json" class="hidden" />
+          <button class="btn danger" id="clearData" data-i18n="deleteAll">Delete all data</button>
+        </div>
+        <table class="list" id="historyTable" aria-label="Results table">
+          <thead><tr>
+            <th data-i18n="tableDate">Date</th>
+            <th data-i18n="tableIndex">Index</th>
+            <th data-i18n="tableStatus">Status</th>
+            <th data-i18n="tableNote">Note</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="spacer"></div>
+        <p class="disclaimer" data-i18n="footerImportant">
+          <strong>Important:</strong> This tool cannot evaluate emergencies. If you feel at risk of harm, contact local emergency services or a trusted adult now.
+        </p>
+      </div>
+    </section>
+
+    <!-- ASSESSMENT（独立页面） -->
+    <section id="assessment" class="section">
+      <div class="card">
+        <h1 data-i18n="assessmentTitle">Self-Assessment</h1>
+        <p class="muted" data-i18n="assessmentHint">Reflect on the past 7 days. Choose what fits best.</p>
+        <div class="spacer"></div>
+        <form id="assessmentForm" style="display:grid; gap:18px">
+          <div class="field">
+            <label data-i18n="q1">1) I felt down or hopeless.</label>
+            <div class="seg">
+              <input id="q1-0" type="radio" name="q1" value="0" required><label for="q1-0" data-i18n="optNever">Never</label>
+              <input id="q1-1" type="radio" name="q1" value="1"><label for="q1-1" data-i18n="optRarely">Rarely</label>
+              <input id="q1-2" type="radio" name="q1" value="2"><label for="q1-2" data-i18n="optSometimes">Sometimes</label>
+              <input id="q1-3" type="radio" name="q1" value="3"><label for="q1-3" data-i18n="optOften">Often</label>
+              <input id="q1-4" type="radio" name="q1" value="4"><label for="q1-4" data-i18n="optAlways">Always</label>
+            </div>
+            <small class="muted" data-i18n="reverse">Reverse-scored</small>
+          </div>
+          <div class="field">
+            <label data-i18n="q2">2) My sleep was restful.</label>
+            <div class="seg">
+              <input id="q2-0" type="radio" name="q2" value="0" required><label for="q2-0" data-i18n="optVeryPoor">Very poor</label>
+              <input id="q2-1" type="radio" name="q2" value="1"><label for="q2-1" data-i18n="optPoor">Poor</label>
+              <input id="q2-2" type="radio" name="q2" value="2"><label for="q2-2" data-i18n="optOkay">Okay</label>
+              <input id="q2-3" type="radio" name="q2" value="3"><label for="q2-3" data-i18n="optGood">Good</label>
+              <input id="q2-4" type="radio" name="q2" value="4"><label for="q2-4" data-i18n="optExcellent">Excellent</label>
+            </div>
+          </div>
+          <div class="field">
+            <label data-i18n="q3">3) I felt energetic.</label>
+            <div class="seg">
+              <input id="q3-0" type="radio" name="q3" value="0" required><label for="q3-0" data-i18n="optNever">Never</label>
+              <input id="q3-1" type="radio" name="q3" value="1"><label for="q3-1" data-i18n="optRarely">Rarely</label>
+              <input id="q3-2" type="radio" name="q3" value="2"><label for="q3-2" data-i18n="optSometimes">Sometimes</label>
+              <input id="q3-3" type="radio" name="q3" value="3"><label for="q3-3" data-i18n="optOften">Often</label>
+              <input id="q3-4" type="radio" name="q3" value="4"><label for="q3-4" data-i18n="optAlways">Always</label>
+            </div>
+          </div>
+          <div class="field">
+            <label data-i18n="q4">4) I felt stressed or overwhelmed.</label>
+            <div class="seg">
+              <input id="q4-0" type="radio" name="q4" value="0" required><label for="q4-0" data-i18n="optNever">Never</label>
+              <input id="q4-1" type="radio" name="q4" value="1"><label for="q4-1" data-i18n="optRarely">Rarely</label>
+              <input id="q4-2" type="radio" name="q4" value="2"><label for="q4-2" data-i18n="optSometimes">Sometimes</label>
+              <input id="q4-3" type="radio" name="q4" value="3"><label for="q4-3" data-i18n="optOften">Often</label>
+              <input id="q4-4" type="radio" name="q4" value="4"><label for="q4-4" data-i18n="optAlways">Always</label>
+            </div>
+            <small class="muted" data-i18n="reverse">Reverse-scored</small>
+          </div>
+          <div class="field">
+            <label data-i18n="q5">5) I enjoyed my usual activities.</label>
+            <div class="seg">
+              <input id="q5-0" type="radio" name="q5" value="0" required><label for="q5-0" data-i18n="optNotAtAll">Not at all</label>
+              <input id="q5-1" type="radio" name="q5" value="1"><label for="q5-1" data-i18n="optALittle">A little</label>
+              <input id="q5-2" type="radio" name="q5" value="2"><label for="q5-2" data-i18n="optSome">Some</label>
+              <input id="q5-3" type="radio" name="q5" value="3"><label for="q5-3" data-i18n="optQuite">Quite</label>
+              <input id="q5-4" type="radio" name="q5" value="4"><label for="q5-4" data-i18n="optALot">A lot</label>
+            </div>
+          </div>
+          <div class="field">
+            <label data-i18n="q6">6) I could not stop worrying.</label>
+            <div class="seg">
+              <input id="q6-0" type="radio" name="q6" value="0" required><label for="q6-0" data-i18n="optNever">Never</label>
+              <input id="q6-1" type="radio" name="q6" value="1"><label for="q6-1" data-i18n="optRarely">Rarely</label>
+              <input id="q6-2" type="radio" name="q6" value="2"><label for="q6-2" data-i18n="optSometimes">Sometimes</label>
+              <input id="q6-3" type="radio" name="q6" value="3"><label for="q6-3" data-i18n="optOften">Often</label>
+              <input id="q6-4" type="radio" name="q6" value="4"><label for="q6-4" data-i18n="optAlways">Always</label>
+            </div>
+            <small class="muted" data-i18n="reverse">Reverse-scored</small>
+          </div>
+          <div class="field">
+            <label data-i18n="q7">7) It was easy to focus on tasks.</label>
+            <div class="seg">
+              <input id="q7-0" type="radio" name="q7" value="0" required><label for="q7-0" data-i18n="optNever">Never</label>
+              <input id="q7-1" type="radio" name="q7" value="1"><label for="q7-1" data-i18n="optRarely">Rarely</label>
+              <input id="q7-2" type="radio" name="q7" value="2"><label for="q7-2" data-i18n="optSometimes">Sometimes</label>
+              <input id="q7-3" type="radio" name="q7" value="3"><label for="q7-3" data-i18n="optOften">Often</label>
+              <input id="q7-4" type="radio" name="q7" value="4"><label for="q7-4" data-i18n="optAlways">Always</label>
+            </div>
+          </div>
+          <div class="field">
+            <label for="note" data-i18n="noteLabel">Optional note</label>
+            <textarea id="note" rows="3" placeholder="Anything you want future-you to remember?" data-i18n-placeholder="notePlaceholder"></textarea>
+          </div>
+          <div class="row">
+            <button type="submit" class="btn primary" data-i18n="submitBtn">Get Wellness Index</button>
+            <a href="#" id="cancelAssessment" class="btn" data-i18n="cancelBtn">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <!-- 全站底部版权 -->
+  <footer class="site-footer">
+    <div class="container">
+      <span id="copyrightLine" data-i18n="copyrightLine">
+        © 2025 Sihan Eric Wang · <a href="https://sihanwang.me" target="_blank" rel="noopener">sihanwang.me</a>
+      </span>
+    </div>
+  </footer>
+
+  <script>
+    /* ==== I18N ==== */
+    const LANG_KEY='mindwell:lang', locales={en:'en-US', zh:'zh-CN'};
+    const i18n={
+      en:{pageTitle:"MindWell · Teen Mental Health Manager",brand:"MindWell",pill:"Teen Mental Health",navSignOut:"Sign out",langBtn:"中文",
+        heroPill:"Private by default · Works offline",heroTitle:"Welcome to MindWell",heroBody:"A simple, privacy-first self-check for teens (ages 13–19). Sign in with a display name, take a quick 2-minute check, and watch your wellness index trend over time.",heroDisclaimer:"MindWell is educational only and does not diagnose or treat any condition. If you feel unsafe or in crisis, call your local emergency number or a trusted adult right away.",
+        loginDisplayName:"Display name",loginAge:"Age (optional)",loginAgePlaceholder:"13–19",loginDisplayNamePlaceholder:"e.g., Alex",loginSubmit:"Sign in",loginNote:"No email, no password. Stored only on this device.",
+        homeTitle:"Home",homeIntro:"MindWell turns a short self-assessment into a Wellness Index (0–100). Higher is better. Your results stay on this device unless you choose to export or sync.",homeBullet1:"Take the check weekly to watch trends.",homeBullet2:"We never give medical advice; talk to a professional if you’re worried.",homeStart:"Start Assessment",
+        latestTitle:"Latest result",latestNone:"No results yet.",latestQuick:"Quick Check",
+        assessmentTitle:"Self-Assessment",assessmentHint:"Reflect on the past 7 days. Choose what fits best.",
+        q1:"I felt down or hopeless.",reverse:"Reverse-scored",q2:"My sleep was restful.",q3:"I felt energetic.",q4:"I felt stressed or overwhelmed.",q5:"I enjoyed my usual activities.",q6:"I could not stop worrying.",q7:"It was easy to focus on tasks.",
+        optNever:"Never",optRarely:"Rarely",optSometimes:"Sometimes",optOften:"Often",optAlways:"Always",optVeryPoor:"Very poor",optPoor:"Poor",optOkay:"Okay",optGood:"Good",optExcellent:"Excellent",optNotAtAll:"Not at all",optALittle:"A little",optSome:"Some",optQuite:"Quite",optALot:"A lot",
+        noteLabel:"Optional note",notePlaceholder:"Anything you want future-you to remember?",submitBtn:"Get Wellness Index",cancelBtn:"Cancel",
+        historyTitle:"History",downloadChart:"Download chart",exportData:"Export data",importData:"Import data",deleteAll:"Delete all data",tableDate:"Date",tableIndex:"Index",tableStatus:"Status",tableNote:"Note",
+        footerImportant:"Important: This tool cannot evaluate emergencies. If you feel at risk of harm, contact local emergency services or a trusted adult now.",
+        whoamiPrefix:"Signed in as {name}",latestAsOf:"As of {date}, your Wellness Index is {ix}.",statuses:{good:"Good",watch:"Watch",risk:"Needs attention"},
+        authorTitle:"Created by Sihan Eric Wang",authorBody:'Visit my website at <a href="https://sihanwang.me" target="_blank" rel="noopener">sihanwang.me</a>.',
+        copyrightLine:'© {year} Sihan Eric Wang · <a href="https://sihanwang.me" target="_blank" rel="noopener">sihanwang.me</a>',
+        alertInvalidName:"Please enter a valid display name.",alertSignOut:"Sign out? Your data stays on this device under your name.",alertAnswerAll:"Please answer all items.",alertIndex:"Your Wellness Index is {ix}.",alertReSign:"Please sign in again.",alertImported:"Imported successfully.",alertInvalidFile:"Invalid file.",alertDeleteAll:"Delete ALL your entries on this device? This cannot be undone."
+      },
+      zh:{pageTitle:"MindWell · 青少年心理健康管理",brand:"MindWell",pill:"青少年心理健康",navSignOut:"退出",langBtn:"English",
+        heroPill:"默认私密 · 可离线使用",heroTitle:"欢迎使用 MindWell",heroBody:"一个简单、注重隐私的青少年自评工具。输入昵称，完成 2 分钟自评，查看你的健康指数趋势。",heroDisclaimer:"MindWell 仅用于教育目的，不提供医疗建议或诊断。如有危险或紧急情况，请立即联系当地急救电话或可信赖的成年人。",
+        loginDisplayName:"显示昵称",loginAge:"年龄（可选）",loginAgePlaceholder:"13–19",loginDisplayNamePlaceholder:"例如：小明",loginSubmit:"登录",loginNote:"无需邮箱与密码。数据仅保存在此设备。",
+        homeTitle:"首页",homeIntro:"MindWell 将一份简短自评转化为 0–100 的“健康指数”，数值越高越好。除非你导出或同步，结果只保存在本设备。",homeBullet1:"建议每周测试一次，观察趋势。",homeBullet2:"我们不提供医疗建议；如有困扰请咨询专业人士。",homeStart:"开始测试",
+        latestTitle:"最新结果",latestNone:"暂无结果。",latestQuick:"快速开始",
+        assessmentTitle:"自评问卷",assessmentHint:"回顾过去 7 天，选择最符合你的选项。",
+        q1:"我感到情绪低落或绝望。",reverse:"反向计分",q2:"我的睡眠令人精神恢复。",q3:"我感觉精力充沛。",q4:"我感到压力大或被压垮。",q5:"我能从日常活动中获得乐趣。",q6:"我无法停止担忧。",q7:"我很容易集中注意力完成任务。",
+        optNever:"从不",optRarely:"很少",optSometimes:"有时",optOften:"经常",optAlways:"总是",optVeryPoor:"很差",optPoor:"较差",optOkay:"一般",optGood:"良好",optExcellent:"非常好",optNotAtAll:"完全没有",optALittle:"一点点",optSome:"一些",optQuite:"相当",optALot:"很多",
+        noteLabel:"可选备注",notePlaceholder:"写点给“未来的自己”的提醒？",submitBtn:"计算健康指数",cancelBtn:"取消",
+        historyTitle:"历史记录",downloadChart:"下载图表",exportData:"导出数据",importData:"导入数据",deleteAll:"删除所有数据",tableDate:"日期",tableIndex:"指数",tableStatus:"状态",tableNote:"备注",
+        footerImportant:"重要：本工具无法判断紧急情况。如有危险，请立即联系当地急救电话或可信赖的成年人。",
+        whoamiPrefix:"当前用户：{name}",latestAsOf:"{date} 的健康指数为 {ix}。",statuses:{good:"良好",watch:"注意",risk:"需要关注"},
+        authorTitle:"作者：Sihan Eric Wang",authorBody:'欢迎访问我的个人网站：<a href="https://sihanwang.me" target="_blank" rel="noopener">sihanwang.me</a>。',
+        copyrightLine:'© {year} Sihan Eric Wang · <a href="https://sihanwang.me" target="_blank" rel="noopener">sihanwang.me</a>',
+        alertInvalidName:"请输入有效的昵称。",alertSignOut:"要退出吗？你的数据会以该昵称保存在本设备。",alertAnswerAll:"请回答所有题目。",alertIndex:"你的健康指数是 {ix}。",alertReSign:"请重新登录。",alertImported:"导入成功。",alertInvalidFile:"文件无效。",alertDeleteAll:"确定删除此设备上的所有记录？该操作不可撤销。"
+      }
+    };
+    const t=(k,p={})=>{const L=getLang();let s=(i18n[L]&&i18n[L][k])||k;for(const key in p){s=s.replace(`{${key}}`,p[key])}return s}
+    const getLang=()=>localStorage.getItem(LANG_KEY)||'en';
+    function applyI18n(){
+      document.querySelectorAll('[data-i18n]').forEach(el=>{
+        const key=el.getAttribute('data-i18n'); const htmlKeys=new Set(['authorBody','copyrightLine']);
+        if(htmlKeys.has(key)) el.innerHTML=t(key,{year:new Date().getFullYear()}); else el.textContent=t(key);
+      });
+      document.querySelectorAll('[data-i18n-placeholder]').forEach(el=>{
+        const key=el.getAttribute('data-i18n-placeholder'); el.setAttribute('placeholder',t(key));
+      });
+      document.title=t('pageTitle');
+      document.getElementById('langToggle').textContent=t('langBtn');
+      updateCopyright();
+    }
+    function setLang(L){localStorage.setItem(LANG_KEY,L); applyI18n(); paintLatest(); paintAll();}
+
+    /* ==== STATE ==== */
+    const LS_USER='mindwell:currentUser', KEY=name=>`mindwell:${name}:entries`;
+    const authSec=document.getElementById('auth');
+    const homeSec=document.getElementById('home');
+    const assessSec=document.getElementById('assessment');
+    const whoami=document.getElementById('whoami'); const signOutBtn=document.getElementById('signOutBtn'); const langToggle=document.getElementById('langToggle');
+    const loginForm=document.getElementById('loginForm'); const displayName=document.getElementById('displayName'); const age=document.getElementById('age');
+    const startBtn=document.getElementById('startAssessment'); const quickBtn=document.getElementById('quickCheck');
+    const latestSummary=document.getElementById('latestSummary'); const latestBadge=document.getElementById('latestBadge');
+    const canvas=document.getElementById('trend'); const ctx=canvas.getContext('2d'); const tip=document.getElementById('tip'); const tableBody=document.querySelector('#historyTable tbody');
+
+    const dlBtn=document.getElementById('downloadPng'); const expBtn=document.getElementById('exportJson'); const impFile=document.getElementById('importFile'); const clearBtn=document.getElementById('clearData');
+
+    const getUser=()=>localStorage.getItem(LS_USER);
+    const setUser=(n)=>localStorage.setItem(LS_USER,n);
+    const setEntries=(n,e)=>localStorage.setItem(KEY(n),JSON.stringify(e));
+    const getEntries=(n)=>{try{return JSON.parse(localStorage.getItem(KEY(n))||'[]')}catch{return []}}
+
+    function route(section){
+      [authSec,homeSec,assessSec].forEach(s=>s.classList.remove('active'));
+      ({auth:authSec,home:homeSec,assessment:assessSec}[section]).classList.add('active');
+      if(section==='home'){ paintLatest(); paintAll(); window.scrollTo({top:0,behavior:'smooth'}) }
+      if(section==='assessment'){ window.scrollTo({top:0,behavior:'smooth'}) }
+    }
+
+    /* ==== EVENTS ==== */
+    langToggle.addEventListener('click',()=> setLang(getLang()==='en'?'zh':'en'));
+    loginForm.addEventListener('submit',e=>{
+      e.preventDefault(); const name=displayName.value.trim();
+      if(name.length<2){ alert(t('alertInvalidName')); return }
+      setUser(name); if(age.value){ localStorage.setItem(`mindwell:${name}:age`,age.value) } onAuthed();
+    });
+    signOutBtn.addEventListener('click',()=>{ if(confirm(t('alertSignOut'))) { localStorage.removeItem(LS_USER); route('auth') }});
+    function onAuthed(){ const name=getUser(); whoami.textContent=name? t('whoamiPrefix',{name}) : ''; signOutBtn.classList.toggle('hidden',!name); route('home'); }
+    startBtn.addEventListener('click',()=>route('assessment'));
+    quickBtn.addEventListener('click',()=>route('assessment'));
+
+    /* ==== ASSESSMENT FORM ==== */
+    const form=document.getElementById('assessmentForm'); const noteEl=document.getElementById('note'); const cancelAssessment=document.getElementById('cancelAssessment');
+    function calcIndex(values){ const rev=[0,3,5]; const adjusted=values.map((v,i)=>rev.includes(i)?(4-v):v); const sum=adjusted.reduce((a,b)=>a+b,0); return Math.round((sum/28)*100) }
+    const statusKey=ix=> ix>=70?'good':(ix>=50?'watch':'risk');
+    form.addEventListener('submit',e=>{
+      e.preventDefault();
+      const fd=new FormData(form); const vals=[];
+      for(let i=1;i<=7;i++){ const v=Number(fd.get('q'+i)); if(Number.isNaN(v)){ alert(t('alertAnswerAll')); return } vals.push(v) }
+      const ix=calcIndex(vals); const name=getUser(); if(!name){ alert(t('alertReSign')); route('auth'); return }
+      const entries=getEntries(name); const now=new Date();
+      entries.push({t:now.toISOString(), index:ix, raw:vals, note:(noteEl.value||'').slice(0,240)});
+      setEntries(name,entries); form.reset(); noteEl.value='';
+      alert(t('alertIndex',{ix})); route('home');
+    });
+    cancelAssessment.addEventListener('click',e=>{ e.preventDefault(); route('home') });
+
+    /* ==== LATEST & HISTORY (HOME) ==== */
+    function paintLatest(){
+      const name=getUser(); const L=getLang(); const entries=getEntries(name||'');
+      if(!entries.length){ latestSummary.textContent=t('latestNone'); latestBadge.className='badge hidden'; return }
+      const last=entries[entries.length-1]; const d=new Date(last.t); const dateStr=d.toLocaleDateString(locales[L]); const sk=statusKey(last.index);
+      latestSummary.textContent=t('latestAsOf',{date:dateStr, ix:last.index});
+      latestBadge.className=`badge ${sk==='good'?'good':(sk==='watch'?'okay':'risk')}`; latestBadge.textContent=i18n[L].statuses[sk]; latestBadge.classList.remove('hidden');
+      if(name) whoami.textContent=t('whoamiPrefix',{name});
+    }
+    function paintAll(){
+      const name=getUser(); const L=getLang(); if(!name) return;
+      const entries=getEntries(name).slice().sort((a,b)=>new Date(a.t)-new Date(b.t));
+      tableBody.innerHTML='';
+      for(const e of entries){
+        const tr=document.createElement('tr'); const d=new Date(e.t); const sk=statusKey(e.index); const cls=sk==='good'?'good':(sk==='watch'?'okay':'risk');
+        tr.innerHTML=`<td>${d.toLocaleString(locales[L])}</td><td><strong>${e.index}</strong></td><td><span class="badge ${cls}">${i18n[L].statuses[sk]}</span></td><td>${e.note? e.note.replace(/[<>&]/g,s=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[s])):''}</td>`;
+        tableBody.appendChild(tr);
+      }
+      drawChart(entries);
+      document.querySelector('[data-i18n="tableDate"]').textContent=t('tableDate');
+      document.querySelector('[data-i18n="tableIndex"]').textContent=t('tableIndex');
+      document.querySelector('[data-i18n="tableStatus"]').textContent=t('tableStatus');
+      document.querySelector('[data-i18n="tableNote"]').textContent=t('tableNote');
+    }
+    function resizeCanvas(){ const vw=canvas.parentElement.clientWidth; const ratio=window.devicePixelRatio||1; canvas.width=Math.round(vw*ratio); canvas.height=Math.round(360*ratio); canvas.style.height='360px'; canvas.style.width='100%' }
+    window.addEventListener('resize',()=>paintAll());
+    function drawChart(entries){
+      resizeCanvas(); const w=canvas.width,h=canvas.height; ctx.clearRect(0,0,w,h);
+      const padL=60,padR=20,padT=20,padB=40;
+      ctx.lineWidth=1; ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--border');
+      ctx.beginPath(); ctx.moveTo(padL,padT); ctx.lineTo(padL,h-padB); ctx.lineTo(w-padR,h-padB); ctx.stroke();
+      ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--muted').trim()||'#666'; ctx.textAlign='right'; ctx.textBaseline='middle';
+      for(let y=0;y<=100;y+=20){ const yy=mapY(y); ctx.strokeStyle='rgba(100,116,139,.18)'; ctx.beginPath(); ctx.moveTo(padL,yy); ctx.lineTo(w-padR,yy); ctx.stroke(); ctx.fillText(String(y), padL-8, yy) }
+      ctx.textAlign='center'; ctx.textBaseline='top';
+      const pts=entries.map((e,i)=>({x:mapX(i,entries.length,w,padL,padR), y:mapY(e.index), index:e.index, t:new Date(e.t)}));
+      if(pts.length){
+        ctx.lineWidth=2; ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--primary').trim()||'#335cff';
+        ctx.beginPath(); pts.forEach((p,i)=>{ if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y) }); ctx.stroke();
+        ctx.fillStyle=ctx.strokeStyle; pts.forEach(p=>{ ctx.beginPath(); ctx.arc(p.x,p.y,4,0,Math.PI*2); ctx.fill() });
+        const maxTicks=Math.min(6,pts.length);
+        for(let i=0;i<maxTicks;i++){ const idx=Math.round(i*(pts.length-1)/(maxTicks-1||1)); const p=pts[idx]; const lbl=p.t.toLocaleDateString(locales[getLang()]); ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--muted').trim()||'#666'; ctx.fillText(lbl,p.x,h-padB+6) }
+      }
+      canvas.onmousemove=(ev)=>{
+        if(!pts.length){ tip.style.opacity=0; return }
+        const rect=canvas.getBoundingClientRect(); const ratio=canvas.width/rect.width; const mx=(ev.clientX-rect.left)*ratio; const my=(ev.clientY-rect.top)*ratio;
+        let nearest=null,best=1e9; for(const p of pts){ const d2=(p.x-mx)**2+(p.y-my)**2; if(d2<best){best=d2; nearest=p} }
+        if(nearest && Math.sqrt(best)<40){const locale=locales[getLang()]; tip.textContent=`${nearest.index} · ${nearest.t.toLocaleString(locale)}`; tip.style.left=(nearest.x/ratio)+'px'; tip.style.top=(nearest.y/ratio)+'px'; tip.style.opacity=1 } else tip.style.opacity=0;
+      };
+      canvas.onmouseleave=()=> tip.style.opacity=0;
+      function mapX(i,n,w,pL,pR){ if(n<=1) return pL; const span=(w-pL-pR); return pL+span*(i/(n-1)) }
+      function mapY(val){ const y0=h-padB,y1=padT; return y0-(val/100)*(y0-y1) }
+    }
+
+    /* ==== EXPORT/IMPORT/CLEAR ==== */
+    dlBtn.addEventListener('click',()=>{ const a=document.createElement('a'); a.download='mindwell-chart.png'; a.href=canvas.toDataURL('image/png'); a.click() });
+    expBtn.addEventListener('click',()=>{ const name=getUser(); if(!name) return; const data=getEntries(name); const a=document.createElement('a'); a.download=`mindwell-${name}-data.json`; a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'})); a.click() });
+    impFile.addEventListener('change',e=>{
+      const file=e.target.files[0]; if(!file) return;
+      const r=new FileReader(); r.onload=()=>{
+        try{ const name=getUser(); const existing=getEntries(name); const incoming=JSON.parse(r.result||'[]'); const seen=new Set(existing.map(x=>x.t)); const merged=existing.concat(incoming.filter(x=>x&&x.t&&!seen.has(x.t)));
+          setEntries(name, merged.sort((a,b)=>new Date(a.t)-new Date(b.t))); paintAll(); alert(t('alertImported'));
+        }catch{ alert(t('alertInvalidFile')) } e.target.value=''
+      }; r.readAsText(file)
+    });
+    clearBtn.addEventListener('click',()=>{ const name=getUser(); if(!name) return; if(confirm(t('alertDeleteAll'))){ setEntries(name,[]); paintAll(); paintLatest() } });
+
+    /* ==== FOOTER COPYRIGHT ==== */
+    function updateCopyright(){
+      const el=document.getElementById('copyrightLine'); if(el) el.innerHTML=t('copyrightLine',{year:new Date().getFullYear()});
+    }
+
+    /* ==== BOOT ==== */
+    (function boot(){
+      applyI18n();
+      const user=getUser(); if(user){ onAuthed() } else { route('auth') }
+    })();
+  </script>
+</body>
+</html>
